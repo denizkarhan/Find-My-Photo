@@ -30,13 +30,13 @@ class CustomToggleButton(QPushButton):
 
 class Window(QtWidgets.QMainWindow):
     def __init__(self):
-
         super(Window, self). __init__()
         self.inputDirectory = ""
         self.inputTargetFaceDirectory = ""
         self.outputDirectory = ""
         self.ui = Ui_MainWindow()
 
+        self.modelMoveToCache()
         self.ui.setupUi(self)
         self.ui.Filter.clicked.connect(self.filtre)
 
@@ -119,6 +119,19 @@ class Window(QtWidgets.QMainWindow):
         self.setPalette(palette)
         self.show()
 
+    def modelMoveToCache(self):
+        path = "~\\.cache\\torch\\checkpoints\\"
+        expanded_folder_path = os.path.expanduser(path)
+        os.makedirs(expanded_folder_path, exist_ok=True)
+        isHere = Path(expanded_folder_path + "20180402-114759-vggface2.pt")
+
+        if not isHere.exists():
+            isHere2 = Path("./20180402-114759-vggface2.pt")
+            if isHere2.exists():
+                os.system(f"cp ./20180402-114759-vggface2.pt {expanded_folder_path}")
+            else:
+                self.showErrorPopup("Model bulunamadi, Lütfen modeli çalıştırılabilir uzantıya indiriniz!\n Model Adı: 20180402-114759-vggface2.pt")
+
     def showPopup(self, msg):
         result = QMessageBox.question(self, 'UYARI', msg,
                                       QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
@@ -127,7 +140,7 @@ class Window(QtWidgets.QMainWindow):
 
     def showErrorPopup(self, msg):
         QMessageBox.warning(self, 'UYARI', msg)
-        sys.exit("Program basariyla tamamlandi.")
+        sys.exit("Program basarıyla tamamland.")
 
     def pushInputFolder(self):
         directory = QFileDialog.getExistingDirectory(self, 'Select Directory')
@@ -144,7 +157,6 @@ class Window(QtWidgets.QMainWindow):
     def pushOutputFolder(self):
         directory = QFileDialog.getExistingDirectory(self, 'Select Directory')
         if directory:
-            # self.ui.outputImages.setItem(0, 0, QTableWidgetItem(directory))
             self.outputDirectory = directory.replace('/', '\\')
 
     def filtre(self):
@@ -653,16 +665,13 @@ class faceCompareProcessor:
                            thresholds=[0.6, 0.7, 0.7], factor=0.709, post_process=True,
                            device=self.device)
         self.resnet = InceptionResnetV1(pretrained='vggface2').eval().to(self.device)
-
     def load_dataset(self):
         faceDataset = datasets.ImageFolder("\\".join(self.inputPath.split('\\')[:-1]) + "\\allFaces")
         faceDataset.idx_to_class = {i: c for c, i in faceDataset.class_to_idx.items()}
         loader = DataLoader(faceDataset, collate_fn=self.collate_fn, num_workers=self.workers)
         return loader, faceDataset
-
     def collate_fn(self, x):
         return x[0]
-
     def process_faces(self, loader, faceDataset, faceDetectionRate=0.9999):
         names = []
         aligned = []
@@ -677,13 +686,11 @@ class faceCompareProcessor:
         aligned = torch.stack(aligned).to(self.device)
         embeddings = self.resnet(aligned).detach().cpu()
         return embeddings, names
-
     def arrayControl(self, new_folder, arr):
         for i in new_folder:
             if i in arr:
                 return 1
         return 0
-
     def calculate_distances(self, embeddings, names):
         human_images = []
         return_images = []
@@ -722,7 +729,6 @@ class faceCompareProcessor:
         sorted_array = sorted(return_images, key=len, reverse=True)
         if self.personCount != -1: return sorted_array[:self.personCount]
         else: return sorted_array
-
     def organize_folders(self, human_images):
         for i in range(len(human_images)):
             folder_name = f'{self.outputPath}\\{i + 1}'
@@ -849,7 +855,6 @@ class multiFaceProcessor2:
             ensure_dir_exists(self.faces_folder_path)
         except:
             Window.showErrorPopup(self.MainUi, "Klasör oluşturulamadi!")
-
     def process_image2(self, img_name):
         image_path = os.path.join(self.inputPath, img_name)
         image = face_recognition.load_image_file(image_path)
@@ -881,19 +886,8 @@ def resizedImages2(path, size):
 def excepthook(exc_type, exc_value, exc_traceback):
     with open("error.log", "w") as f:
         traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
-def modelMoveToCache():
-    path = "~\\.cache\\torch\\checkpoints\\"
-    expanded_folder_path = os.path.expanduser(path)
-    os.makedirs(expanded_folder_path, exist_ok=True)
-    isHere = Path(expanded_folder_path + "20180402-114759-vggface2.pt")
-
-    print("isHere.exists():", isHere.exists())
-    if not isHere.exists():
-        os.system(f"cp ./20180402-114759-vggface2.pt {expanded_folder_path}")
-    print("isHere.exists():", isHere.exists())
 
 if __name__=="__main__":
-    modelMoveToCache()
     sys.excepthook = excepthook
     app = QtWidgets.QApplication(sys.argv)
     win = Window()
